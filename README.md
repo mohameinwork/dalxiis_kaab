@@ -16,6 +16,25 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Authentication
+
+This project uses Supabase Auth for password verification. Only users created
+in Supabase Authentication can sign in; there is no public signup route.
+
+After a successful login, the verified Auth user is upserted into the public
+`users` profile table. The table must include these columns:
+
+```sql
+id uuid primary key references auth.users(id),
+email text unique not null,
+username text,
+role text
+```
+
+Enable Supabase Row Level Security and allow an authenticated user to insert or
+update only their own profile row. Never expose a Supabase service-role key in
+browser code.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
