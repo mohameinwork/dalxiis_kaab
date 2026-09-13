@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Clock,
   Edit,
+  PackageCheck,
   Package,
   Plus,
   Search,
@@ -32,32 +33,25 @@ const ToolsView = () => {
   // Status badge display
   const getStatusBadge = (status: ToolStatus) => {
     switch (status) {
-      case "available":
+      case "waa la heli karaa":
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Available</span>
+            <span>Waa la heli karaa</span>
           </span>
         );
-      case "rented":
+      case "waa la kireystay":
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
             <Clock className="w-3.5 h-3.5" />
-            <span>Rented</span>
+            <span>Wa la kireystay</span>
           </span>
         );
-      case "returned":
+      case "waa lasoo celiyey":
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
             <AlertTriangle className="w-3.5 h-3.5" />
-            <span>Returned</span>
-          </span>
-        );
-      case "maintenance":
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-stone-100 text-stone-700 border border-stone-200">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            <span>Maintenance</span>
+            <span>Waa lasoo celiyey</span>
           </span>
         );
     }
@@ -118,6 +112,7 @@ const ToolsView = () => {
                 <th className="py-3.5 px-6 font-bold">Tool Name</th>
                 <th className="py-3.5 px-6 font-bold">Tool Price</th>
                 <th className="py-3.5 px-6 font-bold">Tool Status</th>
+                <th className="py-3.5 px-6 font-bold">Inventory</th>
                 <th className="py-3.5 px-6 font-bold">Actions</th>
               </tr>
             </thead>
@@ -141,12 +136,47 @@ const ToolsView = () => {
                     {/* Tool Status */}
                     <td className="py-4 px-6 whitespace-nowrap">
                       {getStatusBadge(
-                        tool.status === "rented" ||
-                          tool.status === "returned" ||
-                          tool.status === "maintenance"
+                        tool.status === "waa la kireystay" ||
+                          tool.status === "waa lasoo celiyey" ||
+                          tool.status === "waa la heli karaa"
                           ? tool.status
-                          : "available",
+                          : "waa la heli karaa",
                       )}
+                    </td>
+
+                    {/* Quantity by status */}
+                    <td className="py-4 px-6">
+                      {(() => {
+                        const quantity = Math.max(
+                          Number(tool.quantity ?? 1),
+                          0,
+                        );
+                        const status = tool.status ?? "waa la heli karaa";
+                        const counts = {
+                          available:
+                            status === "waa la heli karaa" ? quantity : 0,
+                          rented: status === "waa la kireystay" ? quantity : 0,
+                          returned:
+                            status === "waa lasoo celiyey" ? quantity : 0,
+                        };
+
+                        return (
+                          <div className="flex flex-wrap gap-1.5">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Available: {counts.available}
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700">
+                              <Clock className="h-3.5 w-3.5" />
+                              Rented: {counts.rented}
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700">
+                              <PackageCheck className="h-3.5 w-3.5" />
+                              Returned: {counts.returned}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     {/* Actions */}
@@ -173,7 +203,7 @@ const ToolsView = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={4} className="py-12 text-center text-stone-500">
+                  <td colSpan={5} className="py-12 text-center text-stone-500">
                     <div className="max-w-sm mx-auto space-y-3">
                       <div className="w-12 h-12 rounded-full bg-[#1D4533]/10 text-[#1D4533] flex items-center justify-center mx-auto">
                         <Package className="w-6 h-6" />

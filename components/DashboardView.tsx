@@ -16,7 +16,7 @@ const DashboardView = () => {
   const overdueTools = 0;
   const totalLateFeesAccrued = 0;
   const totalRentalRevenue = bookings.reduce(
-    (total, booking) => total + Number(booking.price || 0),
+    (total, booking) => total + Number(booking.total_amount || 0),
     0,
   );
   const availabilityRate = totalTools
@@ -67,10 +67,10 @@ const DashboardView = () => {
   >(
     () =>
       bookings.map((booking) => ({
-        toolName: booking.tool,
+        toolName: "Multiple tools",
         customer: booking.customer_name,
         phone: booking.customer_phone,
-        price: `$${Number(booking.price || 0).toFixed(2)}`,
+        price: `$${Number(booking.total_amount || 0).toFixed(2)}`,
         nationalId: booking.national_id,
         date: booking.date,
         status: "Active",

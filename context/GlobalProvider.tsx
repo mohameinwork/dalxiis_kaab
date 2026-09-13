@@ -14,6 +14,7 @@ export interface Tool {
   name?: string | null;
   tool_name?: string | null;
   tool_price?: number | null;
+  quantity?: number | null;
   category?: string | null;
   status?: string | null;
   condition?: string | null;
@@ -21,21 +22,32 @@ export interface Tool {
   [key: string]: unknown;
 }
 
-export type ToolStatus = "available" | "rented" | "returned" | "maintenance";
+export type ToolStatus =
+  | "waa la heli karaa"
+  | "waa lasoo celiyey"
+  | "waa la kireystay";
 
 export interface Booking {
   id?: string | number;
   customer_name: string;
   customer_phone: string;
-  tool: string;
-  price: number;
+  total_amount: number;
   date: string;
   reference: string;
   reference_phone: string;
   national_id: string;
   national_id_image?: string;
-  tool_id: string | number;
   national_image: string; // Base64 encoded image data
+  status?: string | null;
+  items?: BookingItem[];
+}
+
+export interface BookingItem {
+  tool_id: string | number;
+  tool_name?: string | null;
+  quantity: number;
+  unit_price?: number;
+  sub_total?: number;
 }
 
 interface GlobalProviderContext {
@@ -51,6 +63,7 @@ interface GlobalProviderContext {
   addTool: (
     toolName: string,
     price: number,
+    quantity: number,
     status: ToolStatus,
   ) => Promise<{ error?: string }>;
   updateTool: (
@@ -130,10 +143,16 @@ const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   const addTool = useCallback(
-    async (toolName: string, price: number, status: ToolStatus) => {
+    async (
+      toolName: string,
+      price: number,
+      quantity: number,
+      status: ToolStatus,
+    ) => {
       const { error } = await supabase.from("tools").insert({
         tool_name: toolName,
         tool_price: price,
+        quantity,
         status,
       });
 
@@ -197,7 +216,61 @@ const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
       setBookingsError(error.message);
       setBookings([]);
     } else {
-      setBookings((data ?? []) as Booking[]);
+      const bookingRows = data ?? [];
+      const bookingIds = bookingRows
+        .map((booking) => booking.id)
+        .filter((id): id is string | number => id !== undefined);
+      const { data: itemRows, error: itemsError } = bookingIds.length
+        ? await supabase
+            .from("booking_items")
+            .select("tool_id, booking_id, quantity, unit_price, sub_total")
+            .in("booking_id", bookingIds)
+        : { data: [], error: null };
+
+      if (itemsError) {
+        setBookingsError(itemsError.message);
+        setBookings([]);
+      } else {
+        const toolIds = [
+          ...new Set((itemRows ?? []).map((item) => item.tool_id)),
+        ];
+        const { data: toolRows, error: toolsError } = toolIds.length
+          ? await supabase
+              .from("tools")
+              .select("id, tool_name")
+              .in("id", toolIds)
+          : { data: [], error: null };
+
+        if (toolsError) {
+          setBookingsError(toolsError.message);
+          setBookings([]);
+        } else {
+          const toolNames = new Map(
+            (toolRows ?? []).map((tool) => [
+              String(tool.id),
+              tool.tool_name ?? "Unnamed tool",
+            ]),
+          );
+          const itemsByBooking = new Map<string, BookingItem[]>();
+
+          for (const item of itemRows ?? []) {
+            const bookingKey = String(item.booking_id);
+            const bookingItems = itemsByBooking.get(bookingKey) ?? [];
+            bookingItems.push({
+              ...item,
+              tool_name: toolNames.get(String(item.tool_id)) ?? "Unnamed tool",
+            } as BookingItem);
+            itemsByBooking.set(bookingKey, bookingItems);
+          }
+
+          setBookings(
+            bookingRows.map((booking) => ({
+              ...booking,
+              items: itemsByBooking.get(String(booking.id)) ?? [],
+            })) as Booking[],
+          );
+        }
+      }
     }
 
     setBookingsLoading(false);
@@ -205,7 +278,13 @@ const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
 
   const addBooking = useCallback(
     async (booking: Booking) => {
-      let bookingToInsert = booking;
+      const { items, customer_phone, ...bookingFields } = booking;
+      const bookingRecord = {
+        ...bookingFields,
+        customer_phone: customer_phone,
+        status: "Confirmed",
+      };
+      let bookingToInsert = bookingRecord;
       let uploadedImagePath: string | null = null;
 
       if (booking.national_image) {
@@ -238,12 +317,16 @@ const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
           .getPublicUrl(uploadedImagePath);
 
         bookingToInsert = {
-          ...booking,
+          ...bookingRecord,
           national_image: data.publicUrl,
         };
       }
 
-      const { error } = await supabase.from("booking").insert(bookingToInsert);
+      const { data: insertedBooking, error } = await supabase
+        .from("booking")
+        .insert(bookingToInsert)
+        .select("id")
+        .single();
 
       if (error) {
         if (uploadedImagePath) {
@@ -254,10 +337,45 @@ const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
         return { error: error.message };
       }
 
+      const bookingItems = items ?? [];
+
+      if (bookingItems.length === 0) {
+        if (uploadedImagePath) {
+          await supabase.storage
+            .from("reference_image")
+            .remove([uploadedImagePath]);
+        }
+        await supabase.from("booking").delete().eq("id", insertedBooking.id);
+        return { error: "A booking must include at least one tool." };
+      }
+
+      const { error: itemsError } = await supabase.from("booking_items").insert(
+        bookingItems.map((item) => ({
+          booking_id: insertedBooking.id,
+          tool_id: item.tool_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price ?? 0,
+          sub_total: item.sub_total ?? (item.unit_price ?? 0) * item.quantity,
+        })),
+      );
+
+      if (itemsError) {
+        if (uploadedImagePath) {
+          await supabase.storage
+            .from("reference_image")
+            .remove([uploadedImagePath]);
+        }
+        await supabase.from("booking").delete().eq("id", insertedBooking.id);
+        return { error: itemsError.message };
+      }
+
       const { error: statusError } = await supabase
         .from("tools")
         .update({ status: "rented" })
-        .eq("id", booking.tool_id);
+        .in(
+          "id",
+          bookingItems.map((item) => item.tool_id),
+        );
 
       if (statusError) {
         if (uploadedImagePath) {
@@ -265,7 +383,7 @@ const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
             .from("reference_image")
             .remove([uploadedImagePath]);
         }
-        await supabase.from("booking").delete().eq("id", bookingToInsert.id);
+        await supabase.from("booking").delete().eq("id", insertedBooking.id);
         return { error: statusError.message };
       }
 
@@ -286,19 +404,40 @@ const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
         return { error: "Booking not found." };
       }
 
+      const { data: bookingItems, error: itemsError } = await supabase
+        .from("booking_items")
+        .select("tool_id")
+        .eq("booking_id", bookingId);
+
+      if (itemsError) {
+        return { error: itemsError.message };
+      }
+
+      const toolIds = (bookingItems ?? []).map((item) => item.tool_id);
+
       const { error } = await supabase
         .from("tools")
         .update({ status: "returned" })
-        .eq("id", booking.tool_id);
+        .in("id", toolIds);
 
       if (error) {
         return { error: error.message };
       }
 
+      const { error: bookingStatusError } = await supabase
+        .from("booking")
+        .update({ status: "returned" })
+        .eq("id", bookingId);
+
+      if (bookingStatusError) {
+        return { error: bookingStatusError.message };
+      }
+
       await refreshTools();
+      await refreshBookings();
       return {};
     },
-    [bookings, refreshTools],
+    [bookings, refreshBookings, refreshTools],
   );
 
   const deleteBooking = useCallback(

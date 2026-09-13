@@ -9,6 +9,7 @@ interface AddToolModalProps {
   onSubmit: (
     toolName: string,
     price: number,
+    quantity: number,
     status: ToolStatus,
   ) => Promise<{ error?: string }>;
 }
@@ -16,7 +17,8 @@ interface AddToolModalProps {
 const AddToolModal = ({ onClose, onSubmit }: AddToolModalProps) => {
   const [toolName, setToolName] = useState("");
   const [price, setPrice] = useState("");
-  const [status, setStatus] = useState<ToolStatus>("available");
+  const [quantity, setQuantity] = useState("1");
+  const [status, setStatus] = useState<ToolStatus>("waa la heli karaa");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -25,7 +27,12 @@ const AddToolModal = ({ onClose, onSubmit }: AddToolModalProps) => {
     setErrorMessage("");
     setIsSubmitting(true);
 
-    const result = await onSubmit(toolName.trim(), Number(price), status);
+    const result = await onSubmit(
+      toolName.trim(),
+      Number(price),
+      Number(quantity),
+      status,
+    );
 
     if (result.error) {
       setErrorMessage(result.error);
@@ -84,9 +91,9 @@ const AddToolModal = ({ onClose, onSubmit }: AddToolModalProps) => {
               onChange={(event) => setStatus(event.target.value as ToolStatus)}
               className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-sm text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-[#1D4533] focus:outline-none"
             >
-              <option value="available">Available</option>
-              <option value="returned">Returned</option>
-              <option value="maintenance">Rented</option>
+              <option value="waa la heli karaa">Waa La Heli Karaa</option>
+              <option value="wa laso celiyey">Waa Lasoo Celiyeey</option>
+              <option value="wa la kireystay">Waa la kireystay</option>
             </select>
           </div>
 
@@ -106,6 +113,22 @@ const AddToolModal = ({ onClose, onSubmit }: AddToolModalProps) => {
                 className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-sm text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-[#1D4533] focus:outline-none"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+              Tool Quantity
+            </label>
+            <input
+              type="number"
+              required
+              min="1"
+              step="1"
+              value={quantity}
+              onChange={(event) => setQuantity(event.target.value)}
+              placeholder="1"
+              className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-sm text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-[#1D4533] focus:outline-none"
+            />
           </div>
 
           {errorMessage && (

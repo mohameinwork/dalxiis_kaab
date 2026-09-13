@@ -38,10 +38,10 @@ const BookingView = () => {
       [
         item.customer_name,
         item.customer_phone,
-        item.tool,
         item.reference,
         item.reference_phone,
         item.national_id,
+        ...(item.items ?? []).map((bookingItem) => bookingItem.tool_name ?? ""),
       ].some((value) => value.toLowerCase().includes(query)),
     );
   }, [bookings, searchQuery]);
@@ -137,8 +137,28 @@ const BookingView = () => {
                   >
                     <td className="py-3 px-5">{item.customer_name}</td>
                     <td className="py-3 px-5">{item.customer_phone}</td>
-                    <td className="py-3 px-5">{item.tool}</td>
-                    <td className="py-3 px-5">${item.price}</td>
+                    <td className="py-3 px-5">
+                      <div className="space-y-1.5">
+                        {item.items?.map((tool) => (
+                          <div
+                            key={tool.tool_id}
+                            className="flex items-center gap-2"
+                          >
+                            <span className="font-semibold text-[#1D4533]">
+                              {tool.tool_name}
+                            </span>
+
+                            <span className="text-[10px] text-stone-500">
+                              × {tool.quantity}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+
+                    <td className="py-3 px-5 font-semibold">
+                      ${Number(item.total_amount ?? 0).toFixed(2)}
+                    </td>
                     <td className="py-3 px-5">{item.date}</td>
                     <td className="py-3 px-5">{item.reference}</td>
                     <td className="py-3 px-5">{item.reference_phone}</td>

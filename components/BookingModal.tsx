@@ -10,42 +10,79 @@ interface BookingModalProps {
   onSubmit: (booking: Booking) => Promise<{ error?: string }>;
 }
 
-const initialBooking: Booking = {
+interface BookingItem {
+  tool_id: string;
+  tool_name: string;
+  quantity: number;
+  unit_price: number;
+  available_quantity: number;
+  sub_total?: number;
+}
+
+interface BookingForm {
+  customer_name: string;
+  customer_phone: string;
+  date: string;
+  reference: string;
+  reference_phone: string;
+  national_id: string;
+  national_image: string;
+}
+
+const initialBooking: BookingForm = {
   customer_name: "",
   customer_phone: "",
-  tool: "",
-  price: 0,
   date: "",
   reference: "",
   reference_phone: "",
   national_id: "",
   national_image: "",
-  tool_id: "",
 };
 
 const BookingModal = ({ onClose, onSubmit }: BookingModalProps) => {
-  const [booking, setBooking] = useState<Booking>(initialBooking);
+  const [booking, setBooking] = useState<BookingForm>(initialBooking);
+  const [bookingItems, setBookingItems] = useState<BookingItem[]>([]);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imagePreview, setImagePreview] = useState("");
   const { tools, toolsLoading } = useGlobalContext();
-  const selectedTool = tools.find(
-    (tool) => String(tool.id) === String(booking.tool_id),
-  );
   const rentableTools = tools.filter(
-    (tool) => !tool.status || tool.status === "available",
+    (tool) =>
+      (!tool.status || tool.status === "waa la heli karaa") &&
+      Number(tool.quantity ?? 0) > 0,
+  );
+  const totalPrice = bookingItems.reduce(
+    (total, item) => total + item.quantity * item.unit_price,
+    0,
   );
 
-  const updateField = (field: keyof Booking, value: string | number) => {
+  const updateField = (field: keyof BookingForm, value: string) => {
     setBooking((current) => ({ ...current, [field]: value }));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
+
+    if (bookingItems.length === 0) {
+      setError("Please select at least one tool.");
+      return;
+    }
+
     setIsSubmitting(true);
 
-    const result = await onSubmit(booking);
+    const bookingPayload: Booking = {
+      ...booking,
+      total_amount: totalPrice,
+      items: bookingItems.map((item) => ({
+        tool_id: item.tool_id,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        sub_total: item.unit_price * item.quantity,
+      })),
+    };
+
+    const result = await onSubmit(bookingPayload);
 
     if (result.error) {
       setError(result.error);
@@ -56,12 +93,62 @@ const BookingModal = ({ onClose, onSubmit }: BookingModalProps) => {
     onClose();
   };
 
-  const fields = [
-    ["customer_name", "Customer Name", "text"],
-    ["customer_phone", "Customer Phone", "tel"],
-    ["date", "Date", "date"],
-    ["reference", "Reference", "text"],
-  ] as const;
+  const addTool = (tool: (typeof tools)[number]) => {
+    const toolId = String(tool.id);
+
+    const price = Number(tool.tool_price ?? tool.daily_rate ?? 0);
+
+    const availableQuantity = Number(tool.quantity ?? 0);
+
+    setBookingItems((current) => {
+      const existing = current.find((item) => item.tool_id === toolId);
+
+      if (existing) {
+        return current.map((item) =>
+          item.tool_id === toolId
+            ? {
+                ...item,
+                quantity: Math.min(item.quantity + 1, item.available_quantity),
+              }
+            : item,
+        );
+      }
+
+      return [
+        ...current,
+        {
+          tool_id: toolId,
+          tool_name: tool.tool_name ?? tool.name ?? "Unnamed tool",
+          quantity: 1,
+          unit_price: price,
+          available_quantity: availableQuantity,
+        },
+      ];
+    });
+  };
+
+  const removeTool = (toolId: string) => {
+    setBookingItems((current) =>
+      current.filter((item) => item.tool_id !== toolId),
+    );
+  };
+
+  const increaseToolQuantity = (toolId: string) => {
+    const tool = tools.find((item) => String(item.id) === toolId);
+    if (tool) addTool(tool);
+  };
+
+  const decreaseToolQuantity = (toolId: string) => {
+    setBookingItems((current) =>
+      current
+        .map((item) =>
+          item.tool_id === toolId
+            ? { ...item, quantity: item.quantity - 1 }
+            : item,
+        )
+        .filter((item) => item.quantity > 0),
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -86,66 +173,191 @@ const BookingModal = ({ onClose, onSubmit }: BookingModalProps) => {
         )}
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <label className="block text-xs font-bold text-secondary">
+              Customer Name
+              <input
+                type="text"
+                required
+                value={booking.customer_name}
+                onChange={(event) =>
+                  updateField("customer_name", event.target.value)
+                }
+                className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm font-normal text-stone-900 focus:ring-2 focus:ring-[#1D4533] focus:outline-none"
+              />
+            </label>
+
+            <label className="block text-xs font-bold text-secondary">
+              Customer Phone
+              <input
+                type="tel"
+                required
+                value={booking.customer_phone}
+                onChange={(event) =>
+                  updateField("customer_phone", event.target.value)
+                }
+                className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm font-normal text-stone-900 focus:ring-2 focus:ring-[#1D4533] focus:outline-none"
+              />
+            </label>
+
+            <label className="block text-xs font-bold text-secondary">
+              Booking Date
+              <input
+                type="date"
+                required
+                value={booking.date}
+                onChange={(event) => updateField("date", event.target.value)}
+                className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm font-normal text-stone-900 focus:ring-2 focus:ring-[#1D4533] focus:outline-none"
+              />
+            </label>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="space-y-3">
               <label className="block text-xs font-bold text-secondary">
-                Select Tool
-                <select
-                  required
-                  value={String(booking.tool_id)}
-                  onChange={(event) => {
-                    const tool = tools.find(
-                      (item) => String(item.id) === event.target.value,
-                    );
-                    updateField("tool_id", event.target.value);
-                    updateField("tool", tool?.tool_name ?? tool?.name ?? "");
-                    updateField(
-                      "price",
-                      Number(tool?.tool_price ?? tool?.daily_rate ?? 0),
-                    );
-                  }}
-                  className="mt-1 w-full px-3 py-2.5 rounded-lg border border-stone-300 bg-white text-sm font-normal text-stone-900 focus:ring-2 focus:ring-[#1D4533] focus:outline-none"
-                >
-                  <option value="" disabled>
-                    {toolsLoading ? "Loading tools..." : "Select a tool"}
-                  </option>
-                  {rentableTools.map((tool) => (
-                    <option key={tool.id} value={String(tool.id)}>
-                      {tool.tool_name ?? tool.name ?? "Unnamed tool"}
-                    </option>
-                  ))}
-                </select>
+                Select Tools
               </label>
 
+              <div className="rounded-lg border border-stone-300 bg-white overflow-hidden">
+                {toolsLoading ? (
+                  <div className="p-4 text-xs text-stone-500">
+                    Loading tools...
+                  </div>
+                ) : rentableTools.length === 0 ? (
+                  <div className="p-4 text-xs text-stone-500">
+                    No tools available for rent.
+                  </div>
+                ) : (
+                  <div className="max-h-52 overflow-y-auto divide-y divide-stone-100">
+                    {rentableTools.map((tool) => {
+                      const toolId = String(tool.id);
+
+                      const selectedItem = bookingItems.find(
+                        (item) => item.tool_id === toolId,
+                      );
+
+                      const price = Number(
+                        tool.tool_price ?? tool.daily_rate ?? 0,
+                      );
+
+                      const availableQuantity = Number(tool.quantity ?? 0);
+
+                      return (
+                        <div
+                          key={tool.id}
+                          className="flex items-center justify-between gap-3 p-3 hover:bg-stone-50"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-stone-900">
+                              {tool.tool_name ?? tool.name ?? "Unnamed tool"}
+                            </p>
+
+                            <p className="text-[11px] text-stone-500">
+                              ${price.toFixed(2)} / day
+                              {" · "}
+                              {availableQuantity} available
+                            </p>
+                          </div>
+
+                          {selectedItem ? (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => decreaseToolQuantity(toolId)}
+                                className="h-7 w-7 rounded-md border border-stone-300 hover:bg-stone-100"
+                              >
+                                −
+                              </button>
+
+                              <span className="w-7 text-center text-sm font-bold">
+                                {selectedItem.quantity}
+                              </span>
+
+                              <button
+                                type="button"
+                                disabled={
+                                  selectedItem.quantity >= availableQuantity
+                                }
+                                onClick={() => increaseToolQuantity(toolId)}
+                                className="h-7 w-7 rounded-md border border-stone-300 hover:bg-stone-100 disabled:opacity-40"
+                              >
+                                +
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={availableQuantity <= 0}
+                              onClick={() => addTool(tool)}
+                              className="rounded-md bg-[#1D4533] px-3 py-1.5 text-[11px] font-bold text-white hover:bg-[#153526] disabled:opacity-40"
+                            >
+                              Add
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {bookingItems.length > 0 && (
+              <div className="rounded-lg border border-stone-200 bg-stone-50 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-stone-800">
+                    Selected Tools
+                  </p>
+
+                  <span className="text-[10px] text-stone-500">
+                    {bookingItems.length} tool
+                    {bookingItems.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+
+                {bookingItems.map((item) => (
+                  <div
+                    key={item.tool_id}
+                    className="flex items-center justify-between rounded-md bg-white border border-stone-200 p-2.5"
+                  >
+                    <div>
+                      <p className="text-xs font-semibold text-stone-900">
+                        {item.tool_name}
+                      </p>
+
+                      <p className="text-[10px] text-stone-500">
+                        ${item.unit_price.toFixed(2)} × {item.quantity}
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-xs font-bold text-stone-900">
+                        ${(item.unit_price * item.quantity).toFixed(2)}
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={() => removeTool(item.tool_id)}
+                        className="text-[10px] text-red-600 hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="space-y-3">
               <label className="block text-xs font-bold text-secondary">
-                Price
+                Total Price
                 <input
                   type="number"
                   readOnly
-                  value={
-                    selectedTool?.tool_price ??
-                    selectedTool?.daily_rate ??
-                    booking.price
-                  }
+                  value={totalPrice}
                   className="mt-1 w-full px-3 py-2.5 rounded-lg border border-stone-300 bg-stone-100 text-sm font-normal text-stone-900"
                 />
               </label>
-
-              {fields.map(([field, label, type]) => (
-                <label
-                  key={field}
-                  className="block text-xs font-bold text-secondary"
-                >
-                  {label}
-                  <input
-                    type={type}
-                    required
-                    value={String(booking[field])}
-                    onChange={(event) => updateField(field, event.target.value)}
-                    className="mt-1 w-full px-3 py-2.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-sm font-normal text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-[#1D4533] focus:outline-none"
-                  />
-                </label>
-              ))}
             </div>
 
             <div className="space-y-3">
@@ -157,6 +369,19 @@ const BookingModal = ({ onClose, onSubmit }: BookingModalProps) => {
                   value={booking.national_id}
                   onChange={(event) =>
                     updateField("national_id", event.target.value)
+                  }
+                  className="mt-1 w-full px-3 py-2.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-sm font-normal text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-[#1D4533] focus:outline-none"
+                />
+              </label>
+
+              <label className="block text-xs font-bold text-secondary">
+                Reference
+                <input
+                  type="text"
+                  required
+                  value={booking.reference}
+                  onChange={(event) =>
+                    updateField("reference", event.target.value)
                   }
                   className="mt-1 w-full px-3 py-2.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-sm font-normal text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-[#1D4533] focus:outline-none"
                 />
