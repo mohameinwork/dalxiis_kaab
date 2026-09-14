@@ -4,9 +4,9 @@ import {
   CheckCircle2,
   Clock,
   Edit,
-  PackageCheck,
   Package,
   Plus,
+  RotateCcw,
   Search,
   Trash,
 } from "lucide-react";
@@ -16,7 +16,8 @@ import AddToolModal from "@/components/AddToolModal";
 import EditToolModal from "./EditToolModal";
 
 const ToolsView = () => {
-  const { tools, addTool, updateTool, deleteTool } = useGlobalContext();
+  const { tools, bookings, addTool, updateTool, deleteTool } =
+    useGlobalContext();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -29,6 +30,24 @@ const ToolsView = () => {
     if (!q) return tools;
     return tools.filter((tool) => tool.tool_name?.toLowerCase().includes(q));
   }, [tools, searchQuery]);
+
+  const bookingQuantityByTool = useMemo(() => {
+    const quantities = new Map<string, { rented: number; returned: number }>();
+
+    for (const booking of bookings) {
+      const bookingStatus =
+        booking.status === "returned" ? "returned" : "rented";
+
+      for (const item of booking.items ?? []) {
+        const toolKey = String(item.tool_id);
+        const current = quantities.get(toolKey) ?? { rented: 0, returned: 0 };
+        current[bookingStatus] += Math.max(Number(item.quantity), 0);
+        quantities.set(toolKey, current);
+      }
+    }
+
+    return quantities;
+  }, [bookings]);
 
   // Status badge display
   const getStatusBadge = (status: ToolStatus) => {
@@ -151,13 +170,18 @@ const ToolsView = () => {
                           Number(tool.quantity ?? 1),
                           0,
                         );
-                        const status = tool.status ?? "waa la heli karaa";
+                        const rentedQuantity = Math.min(
+                          bookingQuantityByTool.get(String(tool.id))?.rented ??
+                            0,
+                          quantity,
+                        );
+                        const returnedQuantity =
+                          bookingQuantityByTool.get(String(tool.id))
+                            ?.returned ?? 0;
                         const counts = {
-                          available:
-                            status === "waa la heli karaa" ? quantity : 0,
-                          rented: status === "waa la kireystay" ? quantity : 0,
-                          returned:
-                            status === "waa lasoo celiyey" ? quantity : 0,
+                          available: quantity - rentedQuantity,
+                          rented: rentedQuantity,
+                          returned: returnedQuantity,
                         };
 
                         return (
@@ -171,7 +195,7 @@ const ToolsView = () => {
                               Rented: {counts.rented}
                             </span>
                             <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700">
-                              <PackageCheck className="h-3.5 w-3.5" />
+                              <RotateCcw className="h-3.5 w-3.5" />
                               Returned: {counts.returned}
                             </span>
                           </div>

@@ -148,8 +148,8 @@ const BookingView = () => {
                               {tool.tool_name}
                             </span>
 
-                            <span className="text-[10px] text-stone-500">
-                              × {tool.quantity}
+                            <span className="inline-flex items-center rounded-md bg-[#1D4533]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#1D4533]">
+                              Xadi: {tool.quantity}
                             </span>
                           </div>
                         ))}

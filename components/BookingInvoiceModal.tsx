@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 import type { Booking } from "@/context/GlobalProvider";
 import { X, Printer } from "lucide-react";
 
@@ -68,31 +69,57 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             </div>
 
             {/* Billed To & Status */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-5 border-b border-primary-light">
-              <div>
-                <span className="text-[10px] font-bold text-primary uppercase tracking-wider block mb-1">
-                  Billed To
-                </span>
-                <div className="text-sm font-extrabold text-primary uppercase">
-                  {booking.customer_name}
+            <div className="py-5 border-b border-primary-light">
+              {booking.national_image && (
+                <div className="mb-4 flex items-center gap-3">
+                  <Image
+                    src={booking.national_image}
+                    alt="Customer national ID"
+                    width={64}
+                    height={64}
+                    unoptimized
+                    className="h-16 w-16 rounded-full border-2 border-primary-light object-cover"
+                  />
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-primary-light">
+                      Customer ID Image
+                    </div>
+                    <div className="text-xs text-primary">
+                      Verified booking document
+                    </div>
+                  </div>
                 </div>
-                <div className="text-xs text-primary-light">
-                  {booking.customer_phone}
-                </div>
-                <div className="text-xs text-primary">
-                  National ID: {booking.national_id}
-                </div>
-              </div>
+              )}
 
-              <div className="sm:text-right">
-                <span className="text-[10px] font-bold text-primary-light uppercase tracking-wider block mb-1">
-                  Booking Reference
-                </span>
-                <span className="inline-flex items-center text-xs font-bold text-secondary bg-primary px-2 py-0.5 rounded">
-                  {booking?.reference || "Not provided"}
-                </span>
-                <div className="text-xs text-primary-secondary mt-1.5">
-                  Reference phone: {booking?.reference_phone}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <span className="text-[10px] font-bold text-primary uppercase tracking-wider block mb-1">
+                    Billed To
+                  </span>
+                  <div className="text-sm font-extrabold text-primary uppercase">
+                    {booking.customer_name}
+                  </div>
+                  <div className="text-xs text-primary-light">
+                    {booking.customer_phone}
+                  </div>
+                  <div className="text-xs text-primary">
+                    National ID: {booking.national_id}
+                  </div>
+                </div>
+
+                <div className="sm:text-right">
+                  <span className="text-[10px] font-bold text-primary-light uppercase tracking-wider block mb-1">
+                    Booking Reference
+                  </span>
+                  <span className="inline-flex items-center text-xs font-bold text-secondary bg-primary px-2 py-0.5 rounded">
+                    {booking?.reference || "Not provided"}
+                  </span>
+                  <div className="text-xs text-primary-secondary mt-1.5">
+                    Reference phone: {booking?.reference_phone}
+                  </div>
+                  <span className="mt-2 inline-flex rounded-full bg-primary px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-secondary">
+                    {booking.status ?? "Confirmed"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -103,20 +130,29 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                 <thead>
                   <tr className="border-b border-primary-light  text-primary uppercase text-[10px]">
                     <th className="pb-2">Tool Item</th>
+                    <th className="pb-2 text-center">Quantity</th>
                     <th className="pb-2 text-right">Price</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-primary-light ">
-                  <tr>
-                    <td className="py-3">
-                      <div className="font-bold text-primary uppercase tracking-wide text-sm">
-                        {booking.tool}
-                      </div>
-                    </td>
-                    <td className="py-3 text-right font-bold text-primary ">
-                      ${Number(booking.price).toFixed(2)}
-                    </td>
-                  </tr>
+                  {(booking.items ?? []).map((item) => (
+                    <tr key={String(item.tool_id)}>
+                      <td className="py-3">
+                        <div className="font-bold text-primary uppercase tracking-wide text-sm">
+                          {item.tool_name ?? "Unnamed tool"}
+                        </div>
+                        <div className="text-[10px] text-primary-light">
+                          ${Number(item.unit_price ?? 0).toFixed(2)} per day
+                        </div>
+                      </td>
+                      <td className="py-3 text-center font-semibold text-primary">
+                        {item.quantity}
+                      </td>
+                      <td className="py-3 text-right font-bold text-primary">
+                        ${Number(item.sub_total ?? 0).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -126,11 +162,11 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
               <div className="w-64 space-y-1.5 text-xs">
                 <div className="flex justify-between text-primary">
                   <span>Booking Price:</span>
-                  <span>${Number(booking.price).toFixed(2)}</span>
+                  <span>${Number(booking.total_amount ?? 0).toFixed(2)}</span>
                 </div>
                 <div className="pt-2 border-t border-primary-light  flex justify-between font-black text-base text-[#1D4533]">
                   <span>Total Due:</span>
-                  <span>${Number(booking.price).toFixed(2)}</span>
+                  <span>${Number(booking.total_amount ?? 0).toFixed(2)}</span>
                 </div>
               </div>
             </div>

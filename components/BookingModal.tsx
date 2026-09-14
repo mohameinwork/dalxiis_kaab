@@ -2,7 +2,7 @@
 
 import { AlertCircle, Check, ImagePlus, X } from "lucide-react";
 import Image from "next/image";
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { useGlobalContext, type Booking } from "@/context/GlobalProvider";
 
 interface BookingModalProps {
@@ -45,11 +45,32 @@ const BookingModal = ({ onClose, onSubmit }: BookingModalProps) => {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imagePreview, setImagePreview] = useState("");
-  const { tools, toolsLoading } = useGlobalContext();
-  const rentableTools = tools.filter(
-    (tool) =>
-      (!tool.status || tool.status === "waa la heli karaa") &&
-      Number(tool.quantity ?? 0) > 0,
+  const { tools, bookings, toolsLoading } = useGlobalContext();
+  const rentedQuantityByTool = useMemo(() => {
+    const quantities = new Map<string, number>();
+
+    for (const booking of bookings) {
+      if (booking.status === "returned") continue;
+
+      for (const item of booking.items ?? []) {
+        const toolKey = String(item.tool_id);
+        quantities.set(
+          toolKey,
+          (quantities.get(toolKey) ?? 0) + Math.max(Number(item.quantity), 0),
+        );
+      }
+    }
+
+    return quantities;
+  }, [bookings]);
+  const rentableTools = useMemo(
+    () =>
+      tools.filter((tool) => {
+        const totalQuantity = Math.max(Number(tool.quantity ?? 0), 0);
+        const rentedQuantity = rentedQuantityByTool.get(String(tool.id)) ?? 0;
+        return totalQuantity - rentedQuantity > 0;
+      }),
+    [rentedQuantityByTool, tools],
   );
   const totalPrice = bookingItems.reduce(
     (total, item) => total + item.quantity * item.unit_price,
@@ -98,7 +119,10 @@ const BookingModal = ({ onClose, onSubmit }: BookingModalProps) => {
 
     const price = Number(tool.tool_price ?? tool.daily_rate ?? 0);
 
-    const availableQuantity = Number(tool.quantity ?? 0);
+    const availableQuantity = Math.max(
+      Number(tool.quantity ?? 0) - (rentedQuantityByTool.get(toolId) ?? 0),
+      0,
+    );
 
     setBookingItems((current) => {
       const existing = current.find((item) => item.tool_id === toolId);
@@ -240,7 +264,11 @@ const BookingModal = ({ onClose, onSubmit }: BookingModalProps) => {
                         tool.tool_price ?? tool.daily_rate ?? 0,
                       );
 
-                      const availableQuantity = Number(tool.quantity ?? 0);
+                      const availableQuantity = Math.max(
+                        Number(tool.quantity ?? 0) -
+                          (rentedQuantityByTool.get(toolId) ?? 0),
+                        0,
+                      );
 
                       return (
                         <div

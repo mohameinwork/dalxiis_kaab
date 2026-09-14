@@ -92,8 +92,8 @@ const AddToolModal = ({ onClose, onSubmit }: AddToolModalProps) => {
               className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-sm text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-[#1D4533] focus:outline-none"
             >
               <option value="waa la heli karaa">Waa La Heli Karaa</option>
-              <option value="wa laso celiyey">Waa Lasoo Celiyeey</option>
-              <option value="wa la kireystay">Waa la kireystay</option>
+              <option value="waa lasoo celiyey">Waa Lasoo Celiyey</option>
+              <option value="waa la kireystay">Waa la Kireystay</option>
             </select>
           </div>
 

@@ -27,6 +27,22 @@ export type ToolStatus =
   | "waa lasoo celiyey"
   | "waa la kireystay";
 
+const normalizeToolStatus = (status: unknown): ToolStatus | null => {
+  switch (status) {
+    case "waa la heli karaa":
+    case "available":
+      return "waa la heli karaa";
+    case "waa lasoo celiyey":
+    case "returned":
+      return "waa lasoo celiyey";
+    case "waa la kireystay":
+    case "rented":
+      return "waa la kireystay";
+    default:
+      return null;
+  }
+};
+
 export interface Booking {
   id?: string | number;
   customer_name: string;
@@ -116,7 +132,12 @@ const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
       setToolsError(error.message);
       setTools([]);
     } else {
-      setTools((data ?? []) as Tool[]);
+      setTools(
+        (data ?? []).map((tool) => ({
+          ...(tool as Tool),
+          status: normalizeToolStatus(tool.status) ?? tool.status,
+        })),
+      );
     }
 
     setToolsLoading(false);
@@ -371,7 +392,7 @@ const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
 
       const { error: statusError } = await supabase
         .from("tools")
-        .update({ status: "rented" })
+        .update({ status: "waa la kireystay" })
         .in(
           "id",
           bookingItems.map((item) => item.tool_id),
@@ -417,7 +438,7 @@ const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
 
       const { error } = await supabase
         .from("tools")
-        .update({ status: "returned" })
+        .update({ status: "waa lasoo celiyey" })
         .in("id", toolIds);
 
       if (error) {
