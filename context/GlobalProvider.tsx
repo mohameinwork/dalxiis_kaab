@@ -299,75 +299,27 @@ const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
 
   const addBooking = useCallback(
     async (booking: Booking) => {
-      const { items, customer_phone, ...bookingFields } = booking;
+      const { items, ...bookingFields } = booking;
+
       const bookingRecord = {
         ...bookingFields,
-        customer_phone: customer_phone,
         status: "Confirmed",
       };
-      let bookingToInsert = bookingRecord;
-      let uploadedImagePath: string | null = null;
-
-      if (booking.national_image) {
-        const [metadata, base64Data] = booking.national_image.split(",");
-        const mimeType = metadata.match(/data:(.*?);base64/)?.[1];
-
-        if (!base64Data || !mimeType) {
-          return { error: "The national ID image is invalid." };
-        }
-
-        const imageBytes = Uint8Array.from(atob(base64Data), (character) =>
-          character.charCodeAt(0),
-        );
-        const extension = mimeType.split("/")[1] || "jpg";
-        uploadedImagePath = `${currentUser?.id ?? "anonymous"}/${crypto.randomUUID()}.${extension}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("reference_image")
-          .upload(uploadedImagePath, imageBytes, {
-            contentType: mimeType,
-            upsert: false,
-          });
-
-        if (uploadError) {
-          return { error: uploadError.message };
-        }
-
-        const { data } = supabase.storage
-          .from("reference_image")
-          .getPublicUrl(uploadedImagePath);
-
-        bookingToInsert = {
-          ...bookingRecord,
-          national_image: data.publicUrl,
-        };
-      }
-
-      const { data: insertedBooking, error } = await supabase
-        .from("booking")
-        .insert(bookingToInsert)
-        .select("id")
-        .single();
-
-      if (error) {
-        if (uploadedImagePath) {
-          await supabase.storage
-            .from("reference_image")
-            .remove([uploadedImagePath]);
-        }
-        return { error: error.message };
-      }
 
       const bookingItems = items ?? [];
 
       if (bookingItems.length === 0) {
-        if (uploadedImagePath) {
-          await supabase.storage
-            .from("reference_image")
-            .remove([uploadedImagePath]);
-        }
-        await supabase.from("booking").delete().eq("id", insertedBooking.id);
         return { error: "A booking must include at least one tool." };
+      }
+
+      const { data: insertedBooking, error } = await supabase
+        .from("booking")
+        .insert(bookingRecord)
+        .select("id")
+        .single();
+
+      if (error) {
+        return { error: error.message };
       }
 
       const { error: itemsError } = await supabase.from("booking_items").insert(
@@ -381,12 +333,8 @@ const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
       );
 
       if (itemsError) {
-        if (uploadedImagePath) {
-          await supabase.storage
-            .from("reference_image")
-            .remove([uploadedImagePath]);
-        }
         await supabase.from("booking").delete().eq("id", insertedBooking.id);
+
         return { error: itemsError.message };
       }
 
@@ -399,20 +347,22 @@ const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
         );
 
       if (statusError) {
-        if (uploadedImagePath) {
-          await supabase.storage
-            .from("reference_image")
-            .remove([uploadedImagePath]);
-        }
+        await supabase
+          .from("booking_items")
+          .delete()
+          .eq("booking_id", insertedBooking.id);
+
         await supabase.from("booking").delete().eq("id", insertedBooking.id);
+
         return { error: statusError.message };
       }
 
       await refreshBookings();
       await refreshTools();
+
       return {};
     },
-    [currentUser?.id, refreshBookings, refreshTools],
+    [refreshBookings, refreshTools],
   );
 
   const returnBooking = useCallback(

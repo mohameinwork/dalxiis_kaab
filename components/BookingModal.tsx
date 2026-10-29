@@ -428,56 +428,7 @@ const BookingModal = ({ onClose, onSubmit }: BookingModalProps) => {
                 />
               </label>
 
-              <label className="block text-xs font-bold text-secondary">
-                National ID Image
-                <span className="mt-1 flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-stone-300 bg-stone-50 p-4 text-center hover:border-[#1D4533]">
-                  {imagePreview ? (
-                    <Image
-                      src={imagePreview}
-                      alt="National ID preview"
-                      width={500}
-                      height={160}
-                      unoptimized
-                      className="max-h-40 w-full rounded-md object-contain"
-                    />
-                  ) : (
-                    <>
-                      <ImagePlus className="mb-2 h-8 w-8 text-stone-400" />
-                      <span className="text-xs font-semibold text-stone-600">
-                        Upload national ID image
-                      </span>
-                      <span className="mt-1 text-[10px] text-stone-400">
-                        JPG, PNG, or WEBP
-                      </span>
-                    </>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    required
-                    className="sr-only"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (!file) return;
-                      if (file.size > 5 * 1024 * 1024) {
-                        setError(
-                          "The national ID image must be smaller than 5 MB.",
-                        );
-                        event.target.value = "";
-                        return;
-                      }
-
-                      const reader = new FileReader();
-                      reader.onload = () => {
-                        const image = String(reader.result ?? "");
-                        setImagePreview(image);
-                        updateField("national_image", image);
-                      };
-                      reader.readAsDataURL(file);
-                    }}
-                  />
-                </span>
-              </label>
+              
             </div>
           </div>
 
